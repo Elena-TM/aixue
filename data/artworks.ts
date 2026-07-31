@@ -4,6 +4,8 @@ export interface Artwork {
   subject: string;
   image: string;
   year: number;
+  medium: string;
+  dimensions: string;
   price: number;
   archived: boolean;
   destination?: string;

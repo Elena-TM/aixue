@@ -1,18 +1,44 @@
-export default function SubjectFilter() {
+interface SubjectFilterProps {
+  subjects: string[];
+  selectedSubject: string;
+  onChange: (subject: string) => void;
+}
+
+export default function SubjectFilter({
+  subjects,
+  selectedSubject,
+  onChange,
+}: SubjectFilterProps) {
   return (
     <section className="max-w-7xl mx-auto px-8 py-6">
-
       <div className="flex gap-8 overflow-x-auto whitespace-nowrap text-sm">
 
-        <button className="text-neutral-900">Landscape</button>
-        <button className="text-neutral-500 hover:text-black">Orchid</button>
-        <button className="text-neutral-500 hover:text-black">Bamboo</button>
-        <button className="text-neutral-500 hover:text-black">Plum</button>
-        <button className="text-neutral-500 hover:text-black">Lotus</button>
-        <button className="text-neutral-500 hover:text-black">Pine</button>
+        <button
+          onClick={() => onChange("all")}
+          className={
+            selectedSubject === "all"
+              ? "text-neutral-900"
+              : "text-neutral-500 hover:text-black"
+          }
+        >
+          All subjects
+        </button>
+
+        {subjects.map((subject) => (
+          <button
+            key={subject}
+            onClick={() => onChange(subject)}
+            className={
+              selectedSubject === subject
+                ? "text-neutral-900"
+                : "text-neutral-500 hover:text-black"
+            }
+          >
+            {subject}
+          </button>
+        ))}
 
       </div>
-
     </section>
   );
 }

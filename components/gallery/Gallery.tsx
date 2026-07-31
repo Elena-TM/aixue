@@ -1,45 +1,144 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import ArtworkCard from "./ArtworkCard";
-import { artworks } from "@/data/artworks";
+import StatusFilter from "./StatusFilter";
+import SubjectFilter from "./SubjectFilter";
+import { supabase } from "@/lib/supabase";
+
+interface Artwork {
+  id: number;
+  artwork_code: string;
+  title: string;
+  subject: string;
+  year: number;
+  medium: string;
+  width_cm: number;
+  height_cm: number;
+  price: number;
+  archived: boolean;
+  destination: string | null;
+  image: string;
+  print_available: boolean;
+}
+
+type Status = "all" | "available" | "archive";
 
 export default function Gallery() {
+  const galleryRef = useRef<HTMLElement>(null);
+
   const [cardHeight, setCardHeight] = useState(500);
+  const [artworks, setArtworks] = useState<Artwork[]>([]);
 
-useEffect(() => {
-  function updateHeight() {
-    const header = 180;      // we'll measure later
-    const filters = 140;     // we'll measure later
-    const margin = 40;
+  const [status, setStatus] = useState<Status>("all");
+  const [selectedSubject, setSelectedSubject] = useState("all");
 
-    const available =
-      window.innerHeight - header - filters - margin;
+  useEffect(() => {
+    async function loadArtworks() {
+      const { data, error } = await supabase
+        .from("artworks")
+        .select("*")
+        .order("id", { ascending: true });
 
-    setCardHeight(available);
-  }
+      if (error) {
+        console.error("Error loading artworks:", error);
+        return;
+      }
 
-  updateHeight();
+      setArtworks(data ?? []);
+    }
 
-  window.addEventListener("resize", updateHeight);
+    loadArtworks();
+  }, []);
 
-  return () => window.removeEventListener("resize", updateHeight);
-}, []);
+  useEffect(() => {
+    function updateHeight() {
+      if (!galleryRef.current) return;
+
+      const galleryTop = galleryRef.current.getBoundingClientRect().top;
+      const availableHeight = window.innerHeight - galleryTop - 140;
+
+      setCardHeight(availableHeight);
+    }
+
+    updateHeight();
+
+    window.addEventListener("resize", updateHeight);
+
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
+
+  const subjects = Array.from(
+    new Set(
+      artworks
+        .map((artwork) => artwork.subject)
+        .filter((subject) => subject && subject.trim() !== "")
+    )
+  );
+
+  const filteredArtworks = artworks.filter((artwork) => {
+    const matchesStatus =
+      status === "all" ||
+      (status === "available" && !artwork.archived) ||
+      (status === "archive" && artwork.archived);
+
+    const matchesSubject =
+      selectedSubject === "all" ||
+      artwork.subject === selectedSubject;
+
+    return matchesStatus && matchesSubject;
+  });
+
   return (
-    <section className="mx-auto max-w-7xl px-6 py-12">
-      <div className="grid grid-cols-1 gap-10 md:grid-cols-2 xl:grid-cols-3">
-        {artworks.map((artwork) => (
-          <div key={artwork.id} className="break-inside-avoid mb-16 mx-auto max-w-[400px]">
-            <ArtworkCard
-              title={artwork.title}
-              image={artwork.image}
-              price={artwork.price}
-              archived={artwork.archived}
-              destination={artwork.destination}
-              cardHeight={cardHeight}
-            />
-          </div>
-        ))}
-      </div>
-    </section>
+    <>
+      <StatusFilter
+        status={status}
+        onChange={setStatus}
+      />
+
+      <SubjectFilter
+        subjects={subjects}
+        selectedSubject={selectedSubject}
+        onChange={setSelectedSubject}
+      />
+
+      <section
+        ref={galleryRef}
+        className="mx-auto max-w-7xl px-6 py-12"
+      >
+        <div
+          className="grid justify-center gap-x-10 gap-y-16"
+          style={{
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(240px, max-content))",
+          }}
+        >
+          {filteredArtworks.map((artwork) => {
+            const imageUrl = supabase.storage
+              .from("artworks")
+              .getPublicUrl(artwork.image).data.publicUrl;
+
+            return (
+                <Link
+    key={artwork.id}
+    href={`/artwork/${artwork.artwork_code}`}
+    className="block"
+  >
+    <ArtworkCard
+      title={artwork.title}
+      image={imageUrl}
+      price={artwork.price}
+      archived={artwork.archived}
+      destination={artwork.destination ?? undefined}
+      cardHeight={cardHeight}
+      printAvailable={artwork.print_available}
+    />
+  </Link>
+            );
+          })}
+        </div>
+      </section>
+    </>
   );
 }
